@@ -42,28 +42,40 @@ output/report/              YYYY_MM-Report_{Connected,Detail,Graph}_AP_Huawei.xl
 
 ## Install (Debian)
 
+The repo lives under the operator's own home directory, matching the other
+GitHub projects on this PC (e.g. `MRTG-CMP`), rather than under a system
+directory. Clone into `~/Github-PC/AP-Report-Auto` as the `mriazh` user:
+
 ```sh
-sudo useradd --system --create-home --home-dir /opt/ap-report-auto apreport
-sudo -u apreport git clone <repo> /opt/ap-report-auto
-cd /opt/ap-report-auto
-sudo -u apreport python3 -m venv .venv
-sudo -u apreport .venv/bin/pip install '.[browser]'
-sudo -u apreport .venv/bin/playwright install chromium
+sudo -u mriazh mkdir -p /home/mriazh/Github-PC
+sudo -u mriazh git clone <repo> /home/mriazh/Github-PC/AP-Report-Auto
+sudo -u mriazh python3 -m venv /home/mriazh/Github-PC/AP-Report-Auto/.venv
+sudo -u mriazh /home/mriazh/Github-PC/AP-Report-Auto/.venv/bin/pip install '/home/mriazh/Github-PC/AP-Report-Auto/[browser]'
+sudo -u mriazh /home/mriazh/Github-PC/AP-Report-Auto/.venv/bin/playwright install chromium
+```
+
+A more typical interactive form, run as `mriazh`:
+
+```sh
+cd /home/mriazh/Github-PC/AP-Report-Auto
+python3 -m venv .venv
+.venv/bin/pip install '.[browser]'
+.venv/bin/playwright install chromium
 ```
 
 Copy the example env and fill it in locally. It is never committed:
 
 ```sh
-sudo -u apreport cp config/.env.example config/.env
-sudo -u apreport chmod 600 config/.env
-$EDITOR config/.env
+sudo -u mriazh cp /home/mriazh/Github-PC/AP-Report-Auto/config/.env.example /home/mriazh/Github-PC/AP-Report-Auto/config/.env
+sudo -u mriazh chmod 600 /home/mriazh/Github-PC/AP-Report-Auto/config/.env
+$EDITOR /home/mriazh/Github-PC/AP-Report-Auto/config/.env
 ```
 
 Place the three report templates in `config/templates/` (see `config/README.md`),
 then confirm the setup:
 
 ```sh
-sudo -u apreport .venv/bin/ap-report-auto check
+sudo -u mriazh /home/mriazh/Github-PC/AP-Report-Auto/.venv/bin/ap-report-auto check
 ```
 
 ## Schedule

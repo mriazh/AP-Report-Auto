@@ -1,6 +1,6 @@
 [Unit]
 Description=Daily Huawei AP report at 10:00 Asia/Jakarta
-Documentation=file:/opt/ap-report-auto/README.md
+Documentation=file:/home/mriazh/Github-PC/AP-Report-Auto/README.md
 
 [Timer]
 # 10:00 WIB. WIB has no DST, so a plain local time is exact; Timezone= pins it

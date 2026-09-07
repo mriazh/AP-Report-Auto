@@ -65,7 +65,7 @@ def test_service_is_a_oneshot_that_invokes_the_cli():
 
     assert service["Service"]["Type"] == "oneshot"
     assert service["Service"]["ExecStart"].endswith("ap-report-auto run")
-    assert service["Service"]["WorkingDirectory"] == "/opt/ap-report-auto"
+    assert service["Service"]["WorkingDirectory"] == "/home/mriazh/Github-PC/AP-Report-Auto"
     assert service["Service"]["Environment"] == "TZ=Asia/Jakarta"
 
 
@@ -79,8 +79,8 @@ def test_service_does_not_store_secrets():
 def test_service_runs_as_an_unprivileged_user():
     service = _sections(_read(SERVICE))
 
-    assert service["Service"]["User"] == "apreport"
-    assert service["Service"]["Group"] == "apreport"
+    assert service["Service"]["User"] == "mriazh"
+    assert service["Service"]["Group"] == "mriazh"
     assert service["Service"]["UMask"] == "0077"
 
 
