@@ -1,0 +1,27 @@
+# Local secrets — never commit.
+config/.env
+*.env
+*.env.*
+!config/.env.example
+
+# Operator-supplied report templates — never commit (see config/README.md).
+config/templates/*.xlsx
+
+# Generated artefacts.
+output/
+.downloads/
+
+# Documentation — not for public release.
+docs/
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

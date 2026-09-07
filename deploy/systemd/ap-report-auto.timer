@@ -1,0 +1,17 @@
+[Unit]
+Description=Daily Huawei AP report at 10:00 Asia/Jakarta
+Documentation=file:/opt/ap-report-auto/README.md
+
+[Timer]
+# 10:00 WIB. WIB has no DST, so a plain local time is exact; Timezone= pins it
+# so the schedule stays at 10:00 WIB even if the host's system timezone differs.
+OnCalendar=*-*-* 10:00:00
+Timezone=Asia/Jakarta
+# If the PC was off at 10:00, run at the next boot. No catch-up for missed days
+# was requested, so a laptop that was off for a week does not fire seven times.
+Persistent=true
+AccuracySec=1min
+Unit=ap-report-auto.service
+
+[Install]
+WantedBy=timers.target

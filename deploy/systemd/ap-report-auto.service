@@ -1,0 +1,24 @@
+[Unit]
+Description=Huawei AP/SSID daily export and monthly report rebuild
+Documentation=file:/opt/ap-report-auto/README.md
+# The unit intentionally holds no credentials; config/.env is read from
+# WorkingDirectory and stays out of version control.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=apreport
+Group=apreport
+WorkingDirectory=/opt/ap-report-auto
+Environment=TZ=Asia/Jakarta
+# Keep the env file unreadable to other local accounts.
+UMask=0077
+ExecStart=/opt/ap-report-auto/.venv/bin/ap-report-auto run
+TimeoutStartSec=3600
+# The run must not stack up behind a previous one.
+SuccessExitStatus=0
+Restart=no
+
+[Install]
+WantedBy=multi-user.target
