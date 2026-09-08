@@ -116,10 +116,10 @@ def format_duration(seconds: float | int) -> str:
             return f"{h}h {m}m"
         else:
             return f"{h}h {m}m {s}s"
-def started_message(day, month: tuple[int, int], *, mode: str = "daily") -> str:
+def started_message(day, month: tuple[int, int], *, mode: str = "full") -> str:
     return f"[Huawei AP Report Automation] START | mode={mode} | date={day.isoformat()}"
-def success_message(day, month: tuple[int, int], report_names: list[str], *, elapsed: float | int = 0, reports: int = 3, records: int = 0, mode: str = "daily") -> str:
+def success_message(day, month: tuple[int, int], report_names: list[str], *, elapsed: float | int = 0, reports: int = 3, records: int = 0, mode: str = "full") -> str:
     return f"[Huawei AP Report Automation] SUCCESS | mode={mode} | date={day.isoformat()} | elapsed={format_duration(elapsed)} | reports={reports} | records={records}"
-def failure_message(day, reason: str, *, elapsed: float | int = 0, attempts: int | None = None, mode: str = "daily") -> str:
+def failure_message(day, reason: str, *, elapsed: float | int = 0, attempts: int | None = None, mode: str = "full") -> str:
     error_part = f"{reason} (after {attempts} attempts)" if attempts else reason
     return f"[Huawei AP Report Automation] FAILED | mode={mode} | date={day.isoformat()} | elapsed={format_duration(elapsed)} | error={error_part}"

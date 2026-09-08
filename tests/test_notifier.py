@@ -149,12 +149,12 @@ def test_failures_never_leak_the_group_jid():
 
 
 def test_message_text_states_the_day_month_and_outcome():
-    assert "[Huawei AP Report Automation] START | mode=daily | date=2026-09-24" in started_message(date(2026, 9, 24), (2026, 9), mode="daily")
-    success = success_message(date(2026, 9, 24), (2026, 9), ["2026_09-Report_Detail_AP_Huawei.xlsx"], mode="daily")
+    assert "[Huawei AP Report Automation] START | mode=full | date=2026-09-24" in started_message(date(2026, 9, 24), (2026, 9), mode="full")
+    success = success_message(date(2026, 9, 24), (2026, 9), ["2026_09-Report_Detail_AP_Huawei.xlsx"], mode="full")
     assert "SUCCESS" in success and "2026-09-24" in success
-    failure = failure_message(date(2026, 9, 24), "portal unreachable", attempts=5, mode="daily")
+    failure = failure_message(date(2026, 9, 24), "portal unreachable", attempts=5, mode="full")
     assert "FAILED" in failure and "2026-09-24" in failure and "portal unreachable" in failure
-    assert "FAILED" in failure_message(date(2026, 9, 24), "boom", mode="daily")
+    assert "FAILED" in failure_message(date(2026, 9, 24), "boom", mode="full")
 
 
 def test_format_duration():

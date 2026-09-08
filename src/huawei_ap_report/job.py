@@ -72,7 +72,7 @@ class DailyJob:
         month = settings.report_month or (day.year, day.month)
 
         start_time = time.monotonic()
-        self._notify(started_message(day, month, mode="daily"))
+        self._notify(started_message(day, month, mode="full"))
 
         try:
             try:
@@ -81,7 +81,7 @@ class DailyJob:
                 logger.error("collection failed for %s: %s", day.isoformat(), exc)
                 attempts = settings.retry.attempts if isinstance(exc, CollectionError) else None
                 elapsed = time.monotonic() - start_time
-                self._notify(failure_message(day, str(exc), elapsed=elapsed, attempts=attempts, mode="daily"))
+                self._notify(failure_message(day, str(exc), elapsed=elapsed, attempts=attempts, mode="full"))
                 return RunResult(day=day, month=month, ok=False, error=str(exc))
 
             try:
@@ -95,14 +95,14 @@ class DailyJob:
             except (ReportError, TemplateError) as exc:
                 logger.error("report generation failed for %s: %s", day.isoformat(), exc)
                 elapsed = time.monotonic() - start_time
-                self._notify(failure_message(day, str(exc), elapsed=elapsed, mode="daily"))
+                self._notify(failure_message(day, str(exc), elapsed=elapsed, mode="full"))
                 return RunResult(day=day, month=month, ok=False, snapshot=snapshot, error=str(exc))
 
             reports = sorted(outputs.values())
             logger.info("run finished for %s: raw + %d report(s)", day.isoformat(), len(reports))
             elapsed = time.monotonic() - start_time
             records_count = len(snapshot.ap.records) if snapshot and hasattr(snapshot, 'ap') and snapshot.ap else 0
-            self._notify(success_message(day, month, [path.name for path in reports], elapsed=elapsed, reports=len(reports), records=records_count, mode="daily"))
+            self._notify(success_message(day, month, [path.name for path in reports], elapsed=elapsed, reports=len(reports), records=records_count, mode="full"))
             return RunResult(day=day, month=month, ok=True, snapshot=snapshot, reports=reports)
         finally:
             # Guarantee the portal session is closed on both success and failure.
