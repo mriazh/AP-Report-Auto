@@ -7,8 +7,9 @@ optional ``X-Device-Id`` header. No credential is read from another project.
 
 from __future__ import annotations
 
+from datetime import date
 
-from huawei_ap_report.notifier import SEND_PATH, GowaNotifier, NullNotifier
+from huawei_ap_report.notifier import SEND_PATH, GowaNotifier, NullNotifier, format_duration, started_message, success_message, failure_message
 from huawei_ap_report.settings import NotifySettings
 
 
@@ -141,7 +142,24 @@ def test_failures_never_leak_the_group_jid():
         logger.removeHandler(handler)
         logger.setLevel(previous)
 
-    logged = "\n".join(record.getMessage() for record in records)
+    logged = "\\n".join(record.getMessage() for record in records)
     assert "120363000@g.us" not in logged
     assert "secret message body" not in logged
     assert "boom" in logged
+
+
+def test_message_text_states_the_day_month_and_outcome():
+    assert "[Huawei AP Report Automation] START | mode=daily | date=2026-09-24" in started_message(date(2026, 9, 24), (2026, 9), mode="daily")
+    success = success_message(date(2026, 9, 24), (2026, 9), ["2026_09-Report_Detail_AP_Huawei.xlsx"], mode="daily")
+    assert "SUCCESS" in success and "2026-09-24" in success
+    failure = failure_message(date(2026, 9, 24), "portal unreachable", attempts=5, mode="daily")
+    assert "FAILED" in failure and "2026-09-24" in failure and "portal unreachable" in failure
+    assert "FAILED" in failure_message(date(2026, 9, 24), "boom", mode="daily")
+
+
+def test_format_duration():
+    assert format_duration(30) == "30s"
+    assert format_duration(90) == "1m 30s"
+    assert format_duration(3600) == "1h"
+    assert format_duration(3661) == "1h 1m 1s"
+    assert format_duration(7200) == "2h"

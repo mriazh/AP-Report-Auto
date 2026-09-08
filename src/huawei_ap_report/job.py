@@ -66,11 +66,13 @@ class DailyJob:
         self.notifier = notifier
 
     def run(self, day: date | None = None) -> RunResult:
+        import time
         settings = self.settings
         day = day or settings.now().date()
         month = settings.report_month or (day.year, day.month)
 
-        self._notify(started_message(day, month))
+        start_time = time.monotonic()
+        self._notify(started_message(day, month, mode="daily"))
 
         try:
             try:
@@ -78,7 +80,8 @@ class DailyJob:
             except (CollectionError, ApReportError) as exc:
                 logger.error("collection failed for %s: %s", day.isoformat(), exc)
                 attempts = settings.retry.attempts if isinstance(exc, CollectionError) else None
-                self._notify(failure_message(day, str(exc), attempts=attempts))
+                elapsed = time.monotonic() - start_time
+                self._notify(failure_message(day, str(exc), elapsed=elapsed, attempts=attempts, mode="daily"))
                 return RunResult(day=day, month=month, ok=False, error=str(exc))
 
             try:
@@ -91,12 +94,15 @@ class DailyJob:
                 outputs = rebuild_from_archive(plan)
             except (ReportError, TemplateError) as exc:
                 logger.error("report generation failed for %s: %s", day.isoformat(), exc)
-                self._notify(failure_message(day, str(exc)))
+                elapsed = time.monotonic() - start_time
+                self._notify(failure_message(day, str(exc), elapsed=elapsed, mode="daily"))
                 return RunResult(day=day, month=month, ok=False, snapshot=snapshot, error=str(exc))
 
             reports = sorted(outputs.values())
             logger.info("run finished for %s: raw + %d report(s)", day.isoformat(), len(reports))
-            self._notify(success_message(day, month, [path.name for path in reports]))
+            elapsed = time.monotonic() - start_time
+            records_count = len(snapshot.ap.records) if snapshot and hasattr(snapshot, 'ap') and snapshot.ap else 0
+            self._notify(success_message(day, month, [path.name for path in reports], elapsed=elapsed, reports=len(reports), records=records_count, mode="daily"))
             return RunResult(day=day, month=month, ok=True, snapshot=snapshot, reports=reports)
         finally:
             # Guarantee the portal session is closed on both success and failure.

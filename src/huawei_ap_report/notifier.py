@@ -18,23 +18,17 @@ from .settings import NotifySettings
 logger = logging.getLogger(__name__)
 
 SEND_PATH = "/send/message"
-
-
 class Notifier:
     """Interface the pipeline depends on; tests substitute a recorder."""
 
     def send(self, message: str) -> bool:
         raise NotImplementedError
-
-
 class NullNotifier(Notifier):
     """Used when notifications are switched off."""
 
     def send(self, message: str) -> bool:
         logger.info("notifications disabled; would have sent: %s", message)
         return False
-
-
 class GowaNotifier(Notifier):
     """GOWA-compatible HTTP adapter.
 
@@ -92,25 +86,40 @@ class GowaNotifier(Notifier):
             return False
         logger.info("notification delivered")
         return True
-
-
 # --------------------------------------------------------------------------
 # Message rendering
 # --------------------------------------------------------------------------
+def format_duration(seconds: float | int) -> str:
+    """Format duration in seconds to human readable string.
 
+    Args:
+        seconds: Duration in seconds
 
-def started_message(day, month: tuple[int, int]) -> str:
-    return f"AP Report Auto: mulai pengambilan data {day.isoformat()} ( laporan {month[0]:04d}-{month[1]:02d} )."
-
-
-def success_message(day, month: tuple[int, int], report_names: list[str]) -> str:
-    listed = ", ".join(report_names)
-    return (
-        f"AP Report Auto: BERHASIL {day.isoformat()}. "
-        f"Laporan {month[0]:04d}-{month[1]:02d} diperbarui ({listed})."
-    )
-
-
-def failure_message(day, reason: str, *, attempts: int | None = None) -> str:
-    detail = f" AP Report Auto: GAGAL {day.isoformat()} setelah {attempts} percobaan." if attempts else f" AP Report Auto: GAGAL {day.isoformat()}."
-    return f"{detail} Penyebab: {reason}. Laporan bulan ini tidak diubah."
+    Returns:
+        Formatted duration string: <60s -> '{s}s', <3600s -> '{m}m {s}s', >=3600s -> '{h}h {m}m {s}s'
+    """
+    total_s = max(0, int(round(seconds)))
+    if total_s < 60:
+        return f"{total_s}s"
+    elif total_s < 3600:
+        m = total_s // 60
+        s = total_s % 60
+        return f"{m}m {s}s"
+    else:
+        h = total_s // 3600
+        m = (total_s % 3600) // 60
+        s = total_s % 60
+        # Remove zero minutes and seconds for cleaner output
+        if m == 0 and s == 0:
+            return f"{h}h"
+        elif s == 0:
+            return f"{h}h {m}m"
+        else:
+            return f"{h}h {m}m {s}s"
+def started_message(day, month: tuple[int, int], *, mode: str = "daily") -> str:
+    return f"[Huawei AP Report Automation] START | mode={mode} | date={day.isoformat()}"
+def success_message(day, month: tuple[int, int], report_names: list[str], *, elapsed: float | int = 0, reports: int = 3, records: int = 0, mode: str = "daily") -> str:
+    return f"[Huawei AP Report Automation] SUCCESS | mode={mode} | date={day.isoformat()} | elapsed={format_duration(elapsed)} | reports={reports} | records={records}"
+def failure_message(day, reason: str, *, elapsed: float | int = 0, attempts: int | None = None, mode: str = "daily") -> str:
+    error_part = f"{reason} (after {attempts} attempts)" if attempts else reason
+    return f"[Huawei AP Report Automation] FAILED | mode={mode} | date={day.isoformat()} | elapsed={format_duration(elapsed)} | error={error_part}"

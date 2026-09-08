@@ -85,8 +85,8 @@ def test_successful_run_archives_and_rebuilds(tmp_path):
         "2026_09-Report_Graph_AP_Huawei.xlsx",
     ]
     assert len(notifier.messages) == 2
-    assert "mulai" in notifier.messages[0]
-    assert "BERHASIL" in notifier.messages[1]
+    assert "[Huawei AP Report Automation] START | mode=daily | date=2026-09-24" in notifier.messages[0]
+    assert "[Huawei AP Report Automation] SUCCESS | mode=daily | date=2026-09-24" in notifier.messages[1]
 
 
 def test_failed_export_does_not_archive_or_regenerate(tmp_path):
@@ -109,8 +109,7 @@ def test_failed_export_does_not_archive_or_regenerate(tmp_path):
     for path in first.reports:
         assert path.read_bytes() == before[path.name]
     assert len(notifier.messages) == 2
-    assert "GAGAL" in notifier.messages[-1]
-    assert "tidak diubah" in notifier.messages[-1]
+    assert "[Huawei AP Report Automation] FAILED | mode=daily | date=2026-09-24" in notifier.messages[-1]
 
 
 def test_first_export_ok_second_invalid_leaves_no_half_day(tmp_path):
@@ -208,9 +207,9 @@ def test_null_notifier_is_a_no_op():
 
 
 def test_message_text_states_the_day_month_and_outcome():
-    assert "2026-09-24" in started_message(DAY, (2026, 9))
-    success = success_message(DAY, (2026, 9), ["2026_09-Report_Detail_AP_Huawei.xlsx"])
-    assert "BERHASIL" in success and "2026_09" in success
-    failure = failure_message(DAY, "portal unreachable", attempts=5)
-    assert "GAGAL" in failure and "5 percobaan" in failure and "portal unreachable" in failure
-    assert "GAGAL" in failure_message(DAY, "boom")
+    assert "[Huawei AP Report Automation] START | mode=daily | date=2026-09-24" in started_message(DAY, (2026, 9), mode="daily")
+    success = success_message(DAY, (2026, 9), ["2026_09-Report_Detail_AP_Huawei.xlsx"], mode="daily")
+    assert "SUCCESS" in success and "2026-09-24" in success
+    failure = failure_message(DAY, "portal unreachable", attempts=5, mode="daily")
+    assert "FAILED" in failure and "2026-09-24" in failure and "portal unreachable" in failure
+    assert "FAILED" in failure_message(DAY, "boom", mode="daily")
