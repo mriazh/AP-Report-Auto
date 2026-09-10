@@ -79,7 +79,10 @@ class TableExport:
 def decode_export(raw: bytes) -> str:
     """Decode portal bytes, tolerating the UTF-8 BOM and CRLF endings."""
 
-    return raw.decode("utf-8-sig")
+    try:
+        return raw.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise ExportValidationError(f"invalid UTF-8 encoding in export: {exc}") from exc
 
 
 def parse_export(text: str, *, kind: str, required_columns: tuple[str, ...]) -> TableExport:

@@ -29,6 +29,9 @@ EXIT_CONFIG = 2
 
 logger = logging.getLogger("huawei_ap_report")
 
+# Import the process lock
+from .lock import process_lock
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="ap-report-auto", description=__doc__.splitlines()[0])
@@ -64,8 +67,8 @@ def _build_notifier(settings: Settings, *, enabled: bool) -> object:
         return NullNotifier()
     return GowaNotifier(
         settings.notify,
-        tls_verify=settings.tls_verify,
-        ca_bundle=settings.tls_ca_bundle,
+        tls_verify=settings.notify.tls_verify,
+        ca_bundle=settings.notify.tls_ca_bundle,
     )
 
 
@@ -80,12 +83,20 @@ def _command_run(args, settings: Settings) -> int:
 
     settings.verify_configured()
     notifier = _build_notifier(settings, enabled=not args.no_notify)
-    with PlaywrightCollector(
-        settings.huawei,
-        tls_ca_bundle=settings.tls_ca_bundle,
-        tls_verify=settings.tls_verify,
-    ) as exporter:
-        result = DailyJob(settings, exporter, notifier).run(day)
+    
+    # Use process lock to prevent concurrent runs
+    lock_path = settings.output_root / '.run.lock'
+    try:
+        with process_lock(lock_path, blocking=False):
+            with PlaywrightCollector(
+                settings.huawei,
+                tls_ca_bundle=settings.huawei.tls_ca_bundle,
+                tls_verify=settings.huawei.tls_verify,
+            ) as exporter:
+                result = DailyJob(settings, exporter, notifier).run(day)
+    except OSError:
+        print("Another ap-report-auto run is currently in progress", file=sys.stderr)
+        return EXIT_FAILED
 
     if result.ok:
         print(f"OK  {result.day.isoformat()}  {result.snapshot.directory}")

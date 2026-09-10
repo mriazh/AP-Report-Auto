@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 
 from fixtures import ap_csv, ssid_csv
-from huawei_ap_report.errors import AuthError, CollectionError
+from huawei_ap_report.errors import AuthError, CollectionError, PortalUnavailableError
 from huawei_ap_report.huawei import (
     CollectingExporter,
     Download,
@@ -276,6 +276,8 @@ def _settings(**overrides) -> HuaweiSettings:
         nav_timeout_seconds=5,
         ap_filename="apInfo.csv",
         ssid_filename="ssidInfo.csv",
+        tls_verify=True,
+        tls_ca_bundle="",
         selectors={**LOGIN_SELECTORS, **AP_SELECTORS, **SSID_SELECTORS},
     )
     base.update(overrides)
@@ -373,9 +375,14 @@ def test_exports_are_staged_under_their_requested_filenames(tmp_path):
     collector.export("apInfo.csv")
     collector.export("ssidInfo.csv")
 
-    staged = sorted(path.name for path in (tmp_path / "downloads").iterdir())
+    run_dir = collector._run_dir
+    assert run_dir is not None
+    staged = sorted(path.name for path in run_dir.iterdir())
     assert staged == ["apInfo.csv", "ssidInfo.csv"]
-    assert (tmp_path / "downloads" / "apInfo.csv").read_bytes() == ap_csv()
+    assert (run_dir / "apInfo.csv").read_bytes() == ap_csv()
+
+    collector.close()
+    assert not run_dir.exists()
 
 
 def test_an_unknown_filename_is_rejected_rather_than_guessed(tmp_path):
@@ -509,6 +516,9 @@ def test_collector_launches_without_disabling_tls_verification():
         def __init__(self, **kwargs):
             launched.update(kwargs)
 
+        def stop(self):
+            pass
+
     class SyncPlaywright:
         chromium = FakeChromium()
 
@@ -533,6 +543,23 @@ def test_collector_launches_without_disabling_tls_verification():
     assert "ignore_https_errors" not in launched
 
 
+def test_explicit_tls_opt_out_is_scoped_to_the_context(tmp_path):
+    """``TLS_VERIFY=false`` relaxes the context for a self-signed portal cert."""
+
+    page = FakePage()
+    browser = FakeBrowser(page)
+    collector = PlaywrightCollector(
+        _settings(tls_verify=False),
+        browser=browser,
+        download_dir=tmp_path,
+    )
+
+    collector.export('apInfo.csv')
+
+    assert browser.context_kwargs[0]['ignore_https_errors'] is True
+    collector.close()
+
+
 def test_context_keeps_certificate_verification_on_by_default(tmp_path):
     """``TLS_VERIFY=true`` must reach the browser context as verification on."""
 
@@ -543,21 +570,6 @@ def test_context_keeps_certificate_verification_on_by_default(tmp_path):
     collector.export("apInfo.csv")
 
     assert browser.context_kwargs[0]["ignore_https_errors"] is False
-    collector.close()
-
-
-def test_explicit_tls_opt_out_is_scoped_to_the_context(tmp_path):
-    """``TLS_VERIFY=false`` relaxes the context for a self-signed portal cert."""
-
-    page = FakePage()
-    browser = FakeBrowser(page)
-    collector = PlaywrightCollector(
-        _settings(), browser=browser, download_dir=tmp_path, tls_verify=False
-    )
-
-    collector.export("apInfo.csv")
-
-    assert browser.context_kwargs[0]["ignore_https_errors"] is True
     collector.close()
 
 
@@ -580,3 +592,64 @@ def test_login_failure_raises_auth_error():
     collector = PlaywrightCollector(_settings())
     with pytest.raises(CollectionError, match="rejected|failed"):
         collector._login(FakePage_())
+
+
+def test_ensure_browser_stops_playwright_when_launch_fails(monkeypatch):
+    """A failed launch must not leak a Playwright handle onto the asyncio loop."""
+    collector = PlaywrightCollector(_settings())
+    started, stopped = [], []
+
+    class FakeChromium:
+        def launch(self, **kwargs):
+            raise RuntimeError("no display")
+
+    class FakePlaywright:
+        chromium = FakeChromium()
+
+        def start(self):
+            started.append(True)
+            return self
+
+        def stop(self):
+            stopped.append(True)
+
+    import sys
+    import types
+
+    module = types.ModuleType("playwright.sync_api")
+    module.sync_playwright = lambda: FakePlaywright()
+    sys.modules["playwright"] = types.ModuleType("playwright")
+    sys.modules["playwright.sync_api"] = module
+    try:
+        with pytest.raises(PortalUnavailableError, match="cannot start a browser"):
+            collector._ensure_browser()
+    finally:
+        for name in ("playwright.sync_api", "playwright"):
+            sys.modules.pop(name, None)
+
+    assert started == [True], "playwright was started"
+    assert stopped == [True], "playwright was stopped after the failed launch"
+    assert collector._playwright is None, "handle reset for a clean retry"
+
+
+def test_launch_falls_back_to_headless_without_display(monkeypatch):
+    """headless=False on a non-Windows host with no DISPLAY must not crash."""
+    launched: dict[str, object] = {}
+
+    class FakeChromium:
+        def launch(self, **kwargs):
+            launched.update(kwargs)
+            return object()
+
+    class FakePlaywright:
+        chromium = FakeChromium()
+
+    monkeypatch.setattr("os.name", "posix")
+    monkeypatch.delenv("DISPLAY", raising=False)
+    collector = PlaywrightCollector(_settings(headless=False))
+    collector._playwright = FakePlaywright()
+
+    browser = collector._launch()
+
+    assert launched.get("headless") is True, "fell back to headless when DISPLAY is missing"
+    assert browser is not None

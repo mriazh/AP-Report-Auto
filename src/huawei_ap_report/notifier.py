@@ -42,13 +42,13 @@ class GowaNotifier(Notifier):
         settings: NotifySettings,
         *,
         session=None,
-        tls_verify: bool = True,
-        ca_bundle: str = "",
+        tls_verify: bool | None = None,
+        ca_bundle: str | None = None,
     ) -> None:
         self.settings = settings
         self._session = session
-        self.tls_verify = tls_verify
-        self.ca_bundle = ca_bundle
+        self.tls_verify = tls_verify if tls_verify is not None else settings.tls_verify
+        self.ca_bundle = ca_bundle if ca_bundle is not None else settings.tls_ca_bundle
 
     def _client(self):
         if self._session is not None:

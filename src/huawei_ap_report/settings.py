@@ -145,6 +145,8 @@ class HuaweiSettings:
     nav_timeout_seconds: float
     ap_filename: str
     ssid_filename: str
+    tls_verify: bool
+    tls_ca_bundle: str
     selectors: dict[str, str] = field(default_factory=dict)
 
     @property
@@ -196,6 +198,8 @@ class NotifySettings:
     device_id: str
     group_jid: str
     timeout_seconds: float
+    tls_verify: bool
+    tls_ca_bundle: str
 
 
 @dataclass(frozen=True)
@@ -270,6 +274,8 @@ def load_settings(env_file: Path | str | None = None, *, environ: dict[str, str]
         ap_filename=values.get("AP_EXPORT_FILENAME", "apInfo.csv"),
         ssid_filename=values.get("SSID_EXPORT_FILENAME", "ssidInfo.csv"),
         selectors=selectors,
+        tls_verify=_bool(values, "HUAWEI_TLS_VERIFY", _bool(values, "TLS_VERIFY", True)),
+        tls_ca_bundle=values.get("HUAWEI_TLS_CA_BUNDLE", values.get("TLS_CA_BUNDLE", "")),
     )
     retry = RetrySettings(
         attempts=_int(values, "RETRY_ATTEMPTS", 5, minimum=1),
@@ -282,6 +288,8 @@ def load_settings(env_file: Path | str | None = None, *, environ: dict[str, str]
         device_id=values.get("GOWA_DEVICE_ID", ""),
         group_jid=values.get("GOWA_GROUP_JID", ""),
         timeout_seconds=_float(values, "GOWA_TIMEOUT_SECONDS", 20.0, minimum=1),
+        tls_verify=_bool(values, "GOWA_TLS_VERIFY", True),
+        tls_ca_bundle=values.get("GOWA_TLS_CA_BUNDLE", values.get("TLS_CA_BUNDLE", "")),
     )
     report_month = _parse_month(values.get("REPORT_MONTH", "").strip())
     return Settings(
@@ -347,5 +355,9 @@ _KNOWN_KEYS = frozenset(
         "TLS_CA_BUNDLE",
         "LOG_LEVEL",
         "TIMEZONE",
+        "HUAWEI_TLS_VERIFY",
+        "HUAWEI_TLS_CA_BUNDLE",
+        "GOWA_TLS_VERIFY",
+        "GOWA_TLS_CA_BUNDLE",
     }
 )

@@ -128,6 +128,79 @@ def test_env_file_ignores_comments_and_export_prefix(tmp_path):
     assert settings.huawei.headless is False
 
 
+def test_huawei_tls_verify_reads_huawei_key(tmp_path):
+    settings = load_settings(_write(tmp_path, "HUAWEI_TLS_VERIFY=false\n"))
+    assert settings.huawei.tls_verify is False
+    settings = load_settings(_write(tmp_path, "HUAWEI_TLS_VERIFY=true\n"))
+    assert settings.huawei.tls_verify is True
+    
+    settings = load_settings(_write(tmp_path))
+    assert settings.huawei.tls_verify is True
+
+
+def test_huawei_tls_verify_falls_back_to_global_tls_verify(tmp_path):
+    settings = load_settings(_write(tmp_path, "TLS_VERIFY=false\n"))
+    assert settings.huawei.tls_verify is False
+    assert settings.notify.tls_verify is True
+    assert settings.tls_verify is False
+
+
+def test_huawei_tls_verify_explicit_wins_over_global(tmp_path):
+    settings = load_settings(_write(tmp_path, "TLS_VERIFY=false\nHUAWEI_TLS_VERIFY=true\n"))
+    assert settings.huawei.tls_verify is True
+    assert settings.notify.tls_verify is True
+
+
+def test_huawei_tls_verify_defaults_true_when_neither_set(tmp_path):
+    settings = load_settings(_write(tmp_path))
+    assert settings.huawei.tls_verify is True
+    assert settings.notify.tls_verify is True
+
+
+def test_huawei_tls_ca_bundle_reads_huawei_key(tmp_path):
+    settings = load_settings(_write(tmp_path, "HUAWEI_TLS_CA_BUNDLE=/etc/ssl/office.pem\n"))
+    assert settings.huawei.tls_ca_bundle == "/etc/ssl/office.pem"
+    
+    settings = load_settings(_write(tmp_path, "TLS_CA_BUNDLE=/etc/ssl/office.pem\n"))
+    assert settings.huawei.tls_ca_bundle == "/etc/ssl/office.pem"
+    
+    settings = load_settings(_write(tmp_path))
+    assert settings.huawei.tls_ca_bundle == ""
+
+
+def test_huawei_tls_verify_respects_huawei_key(tmp_path):
+    settings = load_settings(_write(tmp_path, "HUAWEI_TLS_VERIFY=false\n"))
+    assert settings.huawei.tls_verify is False
+    assert settings.huawei.tls_ca_bundle == ""
+    
+    settings = load_settings(_write(tmp_path, "HUAWEI_TLS_VERIFY=true\n"))
+    assert settings.huawei.tls_verify is True
+    
+    settings = load_settings(_write(tmp_path))
+    assert settings.huawei.tls_verify is True
+
+def test_gowa_tls_verify_respects_gowa_key(tmp_path):
+    settings = load_settings(_write(tmp_path, "GOWA_TLS_VERIFY=false\n"))
+    assert settings.notify.tls_verify is False
+    
+    settings = load_settings(_write(tmp_path, "GOWA_TLS_VERIFY=true\n"))
+    assert settings.notify.tls_verify is True
+    
+    settings = load_settings(_write(tmp_path))
+    assert settings.notify.tls_verify is True
+
+
+def test_gowa_tls_ca_bundle_defaults_to_tls_ca_bundle(tmp_path):
+    settings = load_settings(_write(tmp_path, "GOWA_TLS_CA_BUNDLE=/path/to/ca.pem\n"))
+    assert settings.notify.tls_ca_bundle == "/path/to/ca.pem"
+    
+    settings = load_settings(_write(tmp_path, "TLS_CA_BUNDLE=/path/to/ca.pem\n"))
+    assert settings.notify.tls_ca_bundle == "/path/to/ca.pem"
+    
+    settings = load_settings(_write(tmp_path))
+    assert settings.notify.tls_ca_bundle == ""
+
+
 def test_env_file_rejects_malformed_lines(tmp_path):
     path = tmp_path / ".env"
     path.write_text("this is not a setting\n", encoding="utf-8")

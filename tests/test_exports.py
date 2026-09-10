@@ -97,3 +97,12 @@ def test_validate_named_export_uses_the_name_to_choose_the_schema():
         validate_named_export("ssidInfo.csv", ap_csv())
     with pytest.raises(ExportValidationError, match="unknown export filename"):
         validate_named_export("mystery.csv", ap_csv())
+
+
+def test_decode_export_rejects_invalid_utf8():
+    # Test that invalid UTF-8 data is properly rejected with ExportValidationError
+    invalid_utf8 = b"\xff\xfe\x00\x00"  # Invalid UTF-8 bytes
+    
+    with pytest.raises(ExportValidationError, match="invalid UTF-8 encoding"):
+        from huawei_ap_report.exports import decode_export
+        decode_export(invalid_utf8)

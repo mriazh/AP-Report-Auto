@@ -151,7 +151,11 @@ def write_block(worksheet, block: SheetBlock, rows: list[list[object]]) -> None:
             cell = worksheet.cell(row=row_number, column=column)
             if beyond_template and row_number > 1:
                 copy_style(worksheet.cell(row=row_number - 1, column=column), cell)
-            cell.value = values[column - 1] if column - 1 < len(values) else None
+            cell_value = values[column - 1] if column - 1 < len(values) else None
+            # Sanitize string values starting with formula prefix characters
+            if isinstance(cell_value, str) and cell_value and cell_value[0] in ('=', '+', '-', '@'):
+                cell_value = "'" + cell_value
+            cell.value = cell_value
 
     first_unused = block.first_data_row + len(rows)
     if worksheet.max_row >= first_unused:

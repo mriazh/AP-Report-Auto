@@ -38,6 +38,8 @@ def _settings(**overrides) -> NotifySettings:
         device_id="device-1",
         group_jid="120363000@g.us",
         timeout_seconds=15,
+        tls_verify=True,
+        tls_ca_bundle="",
     )
     base.update(overrides)
     return NotifySettings(**base)
@@ -110,9 +112,9 @@ def test_verification_is_on_by_default():
 def test_ca_bundle_is_passed_as_the_verify_target():
     session = FakeSession()
 
-    GowaNotifier(_settings(), session=session, ca_bundle="/etc/ssl/office.pem").send("x")
+    GowaNotifier(_settings(tls_ca_bundle='/etc/ssl/office.pem'), session=session).send('x')
 
-    assert session.calls[0]["verify"] == "/etc/ssl/office.pem"
+    assert session.calls[0]['verify'] == '/etc/ssl/office.pem'
 
 
 def test_null_notifier_is_a_no_op():

@@ -15,6 +15,7 @@ failures simply retry on the existing session.
 from __future__ import annotations
 
 import logging
+import os
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -65,9 +66,9 @@ class PlaywrightCollector(PortalExporter):
         settings: HuaweiSettings,
         *,
         browser=None,
-        tls_ca_bundle: str = "",
         download_dir: str | Path | None = None,
-        tls_verify: bool = True,
+        tls_ca_bundle: str | None = None,
+        tls_verify: bool | None = None,
     ) -> None:
         self.settings = settings
         self._browser = browser
@@ -75,12 +76,10 @@ class PlaywrightCollector(PortalExporter):
         self._context = None
         self._page = None
         self._reauthentications = 0
-        self.tls_ca_bundle = tls_ca_bundle
-        #: Secure by default; only an explicit ``TLS_VERIFY=false`` in the env
-        #: file relaxes certificate checking for the portal's own self-signed
-        #: internal certificate. Lives on the context, never on the launch.
-        self.tls_verify = tls_verify
         self.download_dir = Path(download_dir) if download_dir is not None else Path(".downloads")
+        self._run_dir = None
+        self.tls_ca_bundle = tls_ca_bundle if tls_ca_bundle is not None else settings.tls_ca_bundle
+        self.tls_verify = tls_verify if tls_verify is not None else settings.tls_verify
 
     @property
     def browser(self):
@@ -100,12 +99,29 @@ class PlaywrightCollector(PortalExporter):
             # The browser is launched with verification intact. Any relaxation is
             # scoped to the context (see ``tls_verify``) and only when the env
             # file asks for it explicitly.
-            self._browser = self._launch()
+            try:
+                self._browser = self._launch()
+            except Exception:
+                # A failed launch leaves a dead Playwright handle behind.  If
+                # we don't stop it, the next retry starts a second handle
+                # while the first one is still attached to the asyncio loop,
+                # which crashes with "Playwright Sync API inside the asyncio
+                # loop".  Tear the handle down so the retry starts clean.
+                self._playwright.stop()
+                self._playwright = None
+                raise
         return self._browser
 
     def _launch(self):
+        headless = self.settings.headless
+        if not headless and os.name != "nt" and not os.environ.get("DISPLAY"):
+            logger.warning(
+                "HUAWEI_HEADLESS is disabled but DISPLAY is unset on a non-Windows host; "
+                "falling back to headless mode to avoid a headless-server crash"
+            )
+            headless = True
         try:
-            return self._playwright.chromium.launch(headless=self.settings.headless)
+            return self._playwright.chromium.launch(headless=headless)
         except Exception as exc:
             raise PortalUnavailableError(f"cannot start a browser session: {exc}") from exc
 
@@ -117,6 +133,11 @@ class PlaywrightCollector(PortalExporter):
         self._require_selectors(*LOGIN_SELECTOR_KEYS)
         browser = self._ensure_browser()
         try:
+            # Create a unique run directory for this download session
+            import uuid
+            self._run_dir = self.download_dir / uuid.uuid4().hex
+            self._run_dir.mkdir(parents=True, exist_ok=True)
+            
             self._context = browser.new_context(
                 accept_downloads=True, ignore_https_errors=not self.tls_verify
             )
@@ -145,6 +166,16 @@ class PlaywrightCollector(PortalExporter):
         if self._playwright is not None:
             self._playwright.stop()
             self._playwright = None
+            
+        # Clean up the run directory
+        if self._run_dir is not None:
+            try:
+                import shutil
+                if self._run_dir.exists():
+                    shutil.rmtree(self._run_dir)
+            except Exception as exc:
+                logger.warning("Failed to clean up run directory %s: %s", self._run_dir, exc)
+            self._run_dir = None
 
     def __enter__(self) -> "PlaywrightCollector":
         return self
@@ -213,11 +244,15 @@ class PlaywrightCollector(PortalExporter):
 
     def _download(self, view: PortalView) -> Download:
         settings = self.settings
-        self.download_dir.mkdir(parents=True, exist_ok=True)
+        if self._run_dir is not None:
+            self._run_dir.mkdir(parents=True, exist_ok=True)
+            destination = self._run_dir / view.filename
+        else:
+            destination = self.download_dir / view.filename
+        
         try:
             with self._page.expect_download(timeout=settings.export_timeout_seconds * 1000) as info:
                 self._page.click(view.export_selector)
-            destination = self.download_dir / view.filename
             # save_as() returns None; the destination is the source of truth.
             info.value.save_as(str(destination))
         except Exception as exc:

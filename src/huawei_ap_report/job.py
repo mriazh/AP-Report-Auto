@@ -136,6 +136,8 @@ class DailyJob:
 def rebuild_only(settings: Settings, month: tuple[int, int] | None = None) -> list[Path]:
     """Regenerate a month's reports from the archive without collecting."""
 
+    if month is None:
+        month = settings.month_of()
     plan = MonthPlan(
         year=month[0],
         month=month[1],

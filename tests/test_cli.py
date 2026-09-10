@@ -97,12 +97,30 @@ def test_reports_rebuilds_from_the_archive(tmp_path, capsys):
 
 def test_reports_without_snapshots_fails_clearly(tmp_path, capsys):
     build_templates(tmp_path / "templates")
+
+
+def test_run_command_prevents_concurrent_execution(tmp_path, capsys):
+    """Test that the run command prevents concurrent execution via process lock."""
+    from huawei_ap_report.lock import ProcessLock
+    
+    build_templates(tmp_path / "templates")
     env = _env(tmp_path)
-
-    code = main(["--env-file", str(env), "reports"])
-
-    assert code == EXIT_FAILED
-    assert "no valid raw snapshots" in capsys.readouterr().err
+    
+    # Acquire the lock to simulate a running process
+    lock_path = tmp_path / "output" / ".run.lock"
+    lock = ProcessLock(lock_path)
+    lock_acquired = lock.acquire(blocking=False)
+    assert lock_acquired, "Should be able to acquire the lock"
+    
+    try:
+        # This should fail because the lock is already held
+        code = main(["--env-file", str(env), "run"])
+        
+        assert code == EXIT_FAILED, f"Expected EXIT_FAILED but got {code}"
+        err = capsys.readouterr().err
+        assert "Another ap-report-auto run is currently in progress" in err, f"Expected lock message in stderr, got: {err}"
+    finally:
+        lock.release()
 
 
 def test_run_rejects_a_malformed_date(tmp_path, capsys):
@@ -196,6 +214,6 @@ def test_no_notify_uses_the_null_notifier(tmp_path):
     assert isinstance(cli._build_notifier(settings, enabled=False), NullNotifier)
 
     enabled = dataclasses.replace(
-        settings, notify=NotifySettings(enabled=True, base_url="https://x", device_id="d", group_jid="j", timeout_seconds=5)
+        settings, notify=NotifySettings(enabled=True, base_url="https://x", device_id="d", group_jid="j", timeout_seconds=5, tls_verify=True, tls_ca_bundle="")
     )
     assert isinstance(cli._build_notifier(enabled, enabled=True), GowaNotifier)

@@ -100,6 +100,33 @@ def test_parse_duration(raw, expected):
     assert parse_duration(raw) == expected
 
 
+def test_parse_percent_anchors_fractional_part():
+    # Test that the percentage regex properly anchors the fractional part
+    # This ensures values like "<1%(1/61369)" are matched correctly
+    from huawei_ap_report.formats import parse_percent
+    
+    # Valid matches
+    assert parse_percent("<1%(1/61369)") == 1.0
+    assert parse_percent("0%()") is None  # Malformed fraction should not match
+    
+    # Test the anchored regex pattern - the fraction should be part of the match
+    from huawei_ap_report.formats import _PERCENT_RE
+    
+    match = _PERCENT_RE.match("<1%(1/61369)")
+    assert match is not None
+    assert match.group(1) == "<"
+    assert match.group(2) == "1"
+    
+    # Ensure malformed input doesn't match
+    match = _PERCENT_RE.match("<1%(1/61369")  # Missing closing parenthesis
+    assert match is None
+    
+    match = _PERCENT_RE.match("1%")
+    assert match is not None
+    assert match.group(1) is None
+    assert match.group(2) == "1"
+
+
 @pytest.mark.parametrize(
     ("seconds", "expected"),
     [
