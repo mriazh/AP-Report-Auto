@@ -8,7 +8,7 @@ sample raw data:
   ``Poweroff restart count`` are monthly means; percentages are stored as plain
   numbers (``72`` means 72%).
 * ``<1%`` counts as ``1`` — the sample Monthly tabs can only be reproduced that
-  way (GMF-IoT loss averages ``0.13%`` over 30 days).
+  way (loss averages ``0.13%`` over 30 days).
 * ``AP Quantity`` in the Connected Monthly tab is the mean rounded to a whole
   number; throughput/frame pairs are averaged per direction and rendered with two
   decimals and a ``K``/``M``/``G`` suffix.

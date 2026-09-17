@@ -104,7 +104,7 @@ def test_throughput_pair_averages_each_direction():
 
 
 def test_ssid_monthly_uses_sample_semantics():
-    # GMF-IoT-style: <1% is read as 1, AP Quantity is the mean rounded.
+    # Percentage <1% is read as 1, AP Quantity is the mean rounded.
     records = [
         ssid_record("A", users=55, aps=449, throughput="7.8M/3.1M", frames="321.9M/158.6M", retransmission="9.1%(2399/26403)", loss="<1%(1/13979)"),
         ssid_record("A", users=59, aps=453, throughput="1.4M/499.2K", frames="642.1M/218.4M", retransmission="6.0%(553/9257)", loss="0%"),

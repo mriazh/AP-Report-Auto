@@ -64,9 +64,8 @@ def day_tab_name_for(day: date) -> str:
 def monthly_rows(snapshots: Mapping[date, object]) -> list[list[object]]:
     """One Monthly row per SSID, in the order the portal first reported them.
 
-    The example Monthly tab follows the raw export order (GMF-IoT … GMF-Mobile-
-    Huawei, then Download Posturing), so first-appearance order is kept instead
-    of an alphabetical sort.
+    The example Monthly tab follows the raw export order, so first-appearance
+    order is kept instead of an alphabetical sort.
     """
 
     by_ssid: dict[str, list[dict[str, str]]] = {}
