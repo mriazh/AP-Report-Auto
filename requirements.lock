@@ -1,0 +1,18 @@
+# Exact pinned versions for the runtime and CI toolchain.
+# Runtime install:  pip install -r requirements.lock && pip install -e .
+# Regenerate only after `pip install -U pip && pip freeze` on a known-good env.
+certifi==2026.7.22
+charset-normalizer==3.5.2
+et_xmlfile==2.0.0
+greenlet==3.5.6
+idna==3.20
+openpyxl==3.1.5
+playwright==1.63.0
+pyee==13.0.1
+requests==2.34.2
+typing_extensions==4.16.0
+urllib3==2.8.0
+
+# Dev / CI only.
+pytest==9.0.3
+ruff==0.16.0
