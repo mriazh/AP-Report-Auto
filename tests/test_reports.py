@@ -401,6 +401,24 @@ def test_graph_template_without_hidden_sheets_is_rejected(tmp_path):
         build_graph(path, {}, month=MONTH)
 
 
+def test_graph_removes_sheet1_if_present(tmp_path):
+    output_root = tmp_path / "output"
+    snapshot = _snapshot(output_root, date(2026, 9, 1))
+    template = build_graph_template(tmp_path / "t.xlsx")
+
+    # Add Sheet1 to template workbook
+    workbook = load_workbook(template)
+    workbook.create_sheet("Sheet1")
+    workbook.save(template)
+
+    assert "Sheet1" in load_workbook(template).sheetnames
+
+    build_graph(template, {snapshot.day: snapshot}, month=MONTH)
+
+    workbook_final = load_workbook(template)
+    assert "Sheet1" not in workbook_final.sheetnames
+
+
 # --------------------------------------------------------------------------
 # Publication
 # --------------------------------------------------------------------------

@@ -96,6 +96,9 @@ def build_graph(template_path, snapshots: Mapping[date, object], *, month: tuple
         # The example Master tab mirrors the first day of the month.
         _write_tab(workbook[MASTER_TAB], layout, row_of_day.get(first_day), day=first_day)
 
+    if "Sheet1" in workbook.sheetnames:
+        del workbook["Sheet1"]
+
     workbook.save(template_path)
     logger.info(
         "graph report written for %04d-%02d from %d day(s)", month[0], month[1], len(monthly_snapshots)
