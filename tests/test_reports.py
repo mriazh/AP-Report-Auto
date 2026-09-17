@@ -419,6 +419,24 @@ def test_graph_removes_sheet1_if_present(tmp_path):
     assert "Sheet1" not in workbook_final.sheetnames
 
 
+def test_graph_retargets_cloned_day_tab_chart_series(tmp_path):
+    output_root = tmp_path / "output"
+    snapshot = _snapshot(output_root, date(2026, 9, 1))
+    template = build_graph_template(tmp_path / "t.xlsx")
+
+    # Call build_graph for a month where day tab has charts
+    build_graph(template, {snapshot.day: snapshot}, month=MONTH)
+
+    wb = load_workbook(template)
+    for name in ("01", "02"):
+        if name in wb.sheetnames:
+            ws = wb[name]
+            for chart in ws._charts:
+                for series in chart.series:
+                    val_formula = series.val.numRef.f
+                    assert f"'{name}'!" in val_formula, f"chart on {name} must reference its own sheet, got {val_formula}"
+
+
 # --------------------------------------------------------------------------
 # Publication
 # --------------------------------------------------------------------------

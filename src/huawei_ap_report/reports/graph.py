@@ -88,7 +88,9 @@ def build_graph(template_path, snapshots: Mapping[date, object], *, month: tuple
         tab = day.strftime("%d")
         if tab not in workbook.sheetnames:
             ensure_day_tab(workbook, tab)
-        _write_tab(workbook[tab], layout, row_of_day.get(day), day=day if day in row_of_day else None)
+        worksheet = workbook[tab]
+        _retarget_tab_charts(worksheet)
+        _write_tab(worksheet, layout, row_of_day.get(day), day=day if day in row_of_day else None)
     _write_tab(workbook[MONTHLY_TAB], layout, monthly_row, day=None, monthly_row=monthly_row)
 
     first_day = min(monthly_snapshots, default=None)
@@ -397,6 +399,20 @@ def _write_tab(
                 f"=INDEX(__GraphSummary!{summary_column}:{summary_column}, "
                 f"MATCH(DATE({day.year},{day.month},{day.day}), __GraphSummary!$A:$A, 0))"
             )
+
+
+def _retarget_tab_charts(worksheet) -> None:
+    """Ensure all chart series in a day tab reference this tab's own cells."""
+
+    import re
+
+    for chart in getattr(worksheet, "_charts", []):
+        for series in getattr(chart, "series", []):
+            for attr in ("val", "cat"):
+                target = getattr(series, attr, None)
+                ref = getattr(target, "numRef", None) or getattr(target, "strRef", None)
+                if ref and getattr(ref, "f", None):
+                    ref.f = re.sub(r"^'?[^'!]+'?!", f"'{worksheet.title}'!", ref.f)
 
 
 def _bucket_value_columns(worksheet, layout: SummaryLayout) -> list[str]:
