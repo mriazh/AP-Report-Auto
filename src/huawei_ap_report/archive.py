@@ -19,7 +19,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 from .errors import ExportValidationError
-from .exports import AP_FILENAME, SSID_FILENAME, TableExport, load_ap_export, load_ssid_export, parse_export
+from .exports import AP_FILENAME, SSID_FILENAME, TableExport, decode_export, load_ap_export, load_ssid_export, parse_export
 from .exports import AP_COLUMNS, SSID_COLUMNS
 
 logger = logging.getLogger(__name__)
@@ -84,6 +84,35 @@ def load_snapshot(directory: Path) -> RawSnapshot:
     return RawSnapshot(day=day, directory=directory, ap=ap, ssid=ssid)
 
 
+def recover_dangling_backups(root: Path) -> None:
+    """Repair an interrupted raw publish.
+
+    An atomic replace renames the old day to ``.replaced-<name>-*`` and then
+    moves the staged day into place. If the process dies between the two moves
+    the day vanishes behind a backup that no longer has a target: restore it.
+    Stale ``.staging-*`` leftovers are removed outright.
+    """
+
+    root = Path(root)
+    if not root.is_dir():
+        return
+    for backup in sorted(root.glob(".replaced-*")):
+        if not backup.is_dir():
+            continue
+        name = backup.name.split("-", 2)[1] if backup.name.count("-") >= 2 else ""
+        target = root / name
+        if not name or target.exists():
+            continue
+        try:
+            os.replace(backup, target)
+            logger.info("restored dangling raw backup %s", backup.name)
+        except OSError as exc:
+            logger.warning("could not restore raw backup %s: %s", backup.name, exc)
+    for staging in sorted(root.glob(".staging-*")):
+        if staging.is_dir():
+            shutil.rmtree(staging, ignore_errors=True)
+
+
 def collect_snapshots(output_root: Path, *, month: tuple[int, int] | None = None) -> tuple[list[RawSnapshot], list[tuple[date, str]]]:
     """Load valid snapshots, optionally restricted to ``(year, month)``.
 
@@ -92,6 +121,7 @@ def collect_snapshots(output_root: Path, *, month: tuple[int, int] | None = None
     from partial data.
     """
 
+    recover_dangling_backups(raw_root(output_root))
     snapshots: list[RawSnapshot] = []
     skipped: list[tuple[date, str]] = []
     for day in list_snapshot_days(output_root):
@@ -108,8 +138,8 @@ def collect_snapshots(output_root: Path, *, month: tuple[int, int] | None = None
 def validate_pair(ap_bytes: bytes, ssid_bytes: bytes) -> tuple[TableExport, TableExport]:
     """Validate both exports before anything is written to the archive."""
 
-    ap = parse_export(ap_bytes.decode("utf-8-sig"), kind="AP", required_columns=AP_COLUMNS)
-    ssid = parse_export(ssid_bytes.decode("utf-8-sig"), kind="SSID", required_columns=SSID_COLUMNS)
+    ap = parse_export(decode_export(ap_bytes), kind="AP", required_columns=AP_COLUMNS)
+    ssid = parse_export(decode_export(ssid_bytes), kind="SSID", required_columns=SSID_COLUMNS)
     return ap, ssid
 
 
@@ -121,6 +151,7 @@ def publish_pair(output_root: Path, day: date, *, ap_bytes: bytes, ssid_bytes: b
     """
 
     ap, ssid = validate_pair(ap_bytes, ssid_bytes)
+    recover_dangling_backups(raw_root(output_root))
     target = snapshot_dir(output_root, day)
     target.parent.mkdir(parents=True, exist_ok=True)
     staging = target.parent / f".staging-{target.name}-{uuid.uuid4().hex[:8]}"

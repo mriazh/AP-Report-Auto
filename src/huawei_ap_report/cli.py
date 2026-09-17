@@ -30,7 +30,7 @@ EXIT_CONFIG = 2
 logger = logging.getLogger("huawei_ap_report")
 
 # Import the process lock
-from .lock import process_lock
+from .lock import LockContentionError, process_lock
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -94,6 +94,9 @@ def _command_run(args, settings: Settings) -> int:
                 tls_verify=settings.huawei.tls_verify,
             ) as exporter:
                 result = DailyJob(settings, exporter, notifier).run(day)
+    except LockContentionError:
+        print("Another ap-report-auto process is currently holding the output lock", file=sys.stderr)
+        return EXIT_FAILED
     except OSError:
         print("Another ap-report-auto run is currently in progress", file=sys.stderr)
         return EXIT_FAILED
@@ -108,8 +111,17 @@ def _command_run(args, settings: Settings) -> int:
 
 
 def _command_reports(settings: Settings) -> int:
-    month = settings.report_month or settings.month_of()
-    paths = rebuild_only(settings, month)
+    lock_path = settings.output_root / '.run.lock'
+    try:
+        with process_lock(lock_path, blocking=False):
+            month = settings.report_month or settings.month_of()
+            paths = rebuild_only(settings, month)
+    except LockContentionError:
+        print("Another ap-report-auto process is currently holding the output lock", file=sys.stderr)
+        return EXIT_FAILED
+    except OSError:
+        print("Another ap-report-auto process is currently holding the output lock", file=sys.stderr)
+        return EXIT_FAILED
     print(f"OK  rebuilt {month[0]:04d}-{month[1]:02d}")
     for path in paths:
         print(f"    {path}")

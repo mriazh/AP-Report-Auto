@@ -13,7 +13,9 @@ from huawei_ap_report.archive import (
     parse_day_dirname,
     publish_pair,
     raw_root,
+    recover_dangling_backups,
     snapshot_dir,
+    validate_pair,
 )
 from huawei_ap_report.errors import ExportValidationError
 
@@ -104,3 +106,51 @@ def test_load_snapshot_rejects_undated_directory(tmp_path):
 
     with pytest.raises(ExportValidationError, match="dated snapshot"):
         load_snapshot(directory)
+
+
+def test_validate_pair_rejects_invalid_encoding(tmp_path):
+    """Non-UTF-8 bytes raise ExportValidationError through validate_pair."""
+    valid = ap_csv()
+    bad = b"\xff\xfe\x00\x01garbage"
+    with pytest.raises(ExportValidationError, match="invalid UTF-8"):
+        validate_pair(valid, bad)
+    with pytest.raises(ExportValidationError, match="invalid UTF-8"):
+        validate_pair(bad, valid)
+
+
+def test_recover_dangling_backups_restores_missing_target(tmp_path):
+    raw = raw_root(tmp_path)
+    raw.mkdir()
+    # Simulate an interrupted publish: target 20260924 missing, backup present.
+    backup = raw / ".replaced-20260924-abc123"
+    backup.mkdir()
+    (backup / "apInfo.csv").write_bytes(b"")
+    (backup / "ssidInfo.csv").write_bytes(b"")
+    # Stale staging folder to clean up.
+    (raw / ".staging-20260924-def456").mkdir()
+
+    recover_dangling_backups(raw)
+
+    assert (raw / "20260924").is_dir()
+    assert not (raw / ".replaced-20260924-abc123").exists()
+    assert not (raw / ".staging-20260924-def456").exists()
+
+
+def test_recover_dangling_backups_leaves_backup_when_target_exists(tmp_path):
+    raw = raw_root(tmp_path)
+    raw.mkdir()
+    target = raw / "20260924"
+    target.mkdir()
+    (target / "apInfo.csv").write_bytes(b"ok")
+    backup = raw / ".replaced-20260924-abc123"
+    backup.mkdir()
+    (backup / "apInfo.csv").write_bytes(b"old")
+
+    recover_dangling_backups(raw)
+
+    assert (target / "apInfo.csv").read_bytes() == b"ok"
+    assert backup.exists()  # target already present, backup is a normal leftover
+
+
+def test_recover_dangling_backups_noop_when_raw_missing(tmp_path):
+    recover_dangling_backups(raw_root(tmp_path))  # does not raise

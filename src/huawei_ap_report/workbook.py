@@ -86,6 +86,12 @@ def resolve_template(template_dir: Path, keyword: str) -> Path:
             f"no template matching {keyword!r} in {directory}: place a {keyword} workbook there "
             f"(see config/README.md)"
         )
+    if len(candidates) > 1:
+        names = ", ".join(path.name for path in candidates)
+        raise TemplateError(
+            f"ambiguous template matching {keyword!r} in {directory}: found {len(candidates)} "
+            f"candidates ({names}); keep exactly one template per report kind"
+        )
     resolved = candidates[-1]
     logger.info("using %s template: %s", keyword, resolved)
     return resolved

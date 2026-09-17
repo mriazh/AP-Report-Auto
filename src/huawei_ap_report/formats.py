@@ -63,7 +63,10 @@ def parse_percent(value: str | None) -> float | None:
     bounded, number = match.group(1), match.group(2)
     if bounded:
         return 1.0
-    return float(number)
+    number = float(number)
+    if not 0.0 <= number <= 100.0:
+        return None
+    return number
 
 
 def format_percent(value: float) -> str:
@@ -88,7 +91,10 @@ def parse_ratio_pair(value: str | None) -> tuple[float | None, float | None, flo
     fractions = re.search(r"\(([0-9]+)/([0-9]+)\)", text)
     if not fractions:
         return percent, None, None
-    return percent, int(fractions.group(1)), int(fractions.group(2))
+    numerator, denominator = int(fractions.group(1)), int(fractions.group(2))
+    if denominator <= 0 or numerator < 0 or numerator > denominator:
+        return None, None, None
+    return percent, numerator, denominator
 
 
 def parse_size_pair(value: str | None) -> tuple[float, float] | None:

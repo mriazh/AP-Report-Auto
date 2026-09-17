@@ -4,7 +4,7 @@ import os
 import tempfile
 import pytest
 
-from huawei_ap_report.lock import ProcessLock, process_lock
+from huawei_ap_report.lock import LockContentionError, ProcessLock, process_lock
 def test_process_lock_acquire_release():
     """Test basic lock acquisition and release."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -28,7 +28,7 @@ def test_process_lock_non_blocking():
         # First, acquire the lock
         with ProcessLock(lock_path):
             # Try to acquire the same lock non-blocking - should fail
-            with pytest.raises(OSError, match="Could not acquire lock"):
+            with pytest.raises(LockContentionError):
                 with process_lock(lock_path, blocking=False):
                     pass  # This should not be reached
 

@@ -48,6 +48,25 @@ def test_parse_ratio_pair_extracts_counts():
     assert parse_ratio_pair("--") == (None, None, None)
 
 
+def test_parse_percent_rejects_out_of_range_values():
+    assert parse_percent("999%") is None
+    assert parse_percent("-1%") is None
+    assert parse_percent("0%") == 0.0
+    assert parse_percent("100%") == 100.0
+    # The portal's "<1%" sentinel is already bounded to 1.0.
+    assert parse_percent("<1%") == 1.0
+
+
+def test_parse_ratio_pair_rejects_impossible_counts():
+    # Denominator zero.
+    assert parse_ratio_pair("50%(1/0)") == (None, None, None)
+    # Numerator above the denominator.
+    assert parse_ratio_pair("50%(9/8)") == (None, None, None)
+    # Both ends still valid.
+    assert parse_ratio_pair("50%(8/8)") == (50.0, 8, 8)
+    assert parse_ratio_pair("0%(0/8)") == (0.0, 0, 8)
+
+
 @pytest.mark.parametrize(
     ("raw", "expected"),
     [

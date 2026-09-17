@@ -118,9 +118,32 @@ def test_run_command_prevents_concurrent_execution(tmp_path, capsys):
         
         assert code == EXIT_FAILED, f"Expected EXIT_FAILED but got {code}"
         err = capsys.readouterr().err
-        assert "Another ap-report-auto run is currently in progress" in err, f"Expected lock message in stderr, got: {err}"
+        assert "Another ap-report-auto" in err, f"Expected lock message in stderr, got: {err}"
     finally:
         lock.release()
+
+
+def test_reports_command_respects_process_lock(tmp_path, capsys):
+    """The reports command is held under the output lock like run."""
+    from huawei_ap_report.lock import ProcessLock
+
+    build_templates(tmp_path / "templates")
+    write_raw_pair(tmp_path / "output" / "raw" / "20260901", ap=ap_csv(), ssid=ssid_csv())
+    env = _env(tmp_path)
+
+    lock = ProcessLock(tmp_path / "output" / ".run.lock")
+    assert lock.acquire(blocking=False)
+    try:
+        code = main(["--env-file", str(env), "reports"])
+        err = capsys.readouterr().err
+        assert code == EXIT_FAILED
+        assert "holding the output lock" in err
+    finally:
+        lock.release()
+
+    code = main(["--env-file", str(env), "reports"])
+    assert code == EXIT_OK
+    assert "rebuilt 2026-09" in capsys.readouterr().out
 
 
 def test_run_rejects_a_malformed_date(tmp_path, capsys):

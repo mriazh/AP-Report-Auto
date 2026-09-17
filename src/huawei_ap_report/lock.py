@@ -12,6 +12,12 @@ from contextlib import contextmanager
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+
+class LockContentionError(OSError):
+    """Raised when a non-blocking lock request finds the lock already held."""
+
+
 class ProcessLock:
     """Cross-platform process lock using file system locks."""
 
@@ -120,6 +126,8 @@ def process_lock(lock_path: str | Path, blocking: bool = True):
     """
     lock = ProcessLock(lock_path)
     if not lock.acquire(blocking=blocking):
+        if not blocking:
+            raise LockContentionError(f"lock already held: {lock_path}")
         raise OSError(f"Could not acquire lock on {lock_path}")
     try:
         yield lock
