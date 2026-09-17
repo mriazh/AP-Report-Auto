@@ -48,15 +48,16 @@ def test_process_lock_auto_release():
     """Test that lock is automatically released on exception."""
     with tempfile.TemporaryDirectory() as tmpdir:
         lock_path = os.path.join(tmpdir, "test.lock")
-        
-        # First acquire the lock
-        with ProcessLock(lock_path):
-            # Try to acquire again - should fail
-            with pytest.raises(OSError):
-                with ProcessLock(lock_path):
-                    pass  # This should not be reached
-        
-        # Lock should now be available again
+
+        # Leaving the block via an exception must still release the lock.
+        # A nested blocking acquire cannot be used here: fcntl.flock blocks
+        # forever on POSIX when the lock is already held.
+        with pytest.raises(RuntimeError, match="boom"):
+            with ProcessLock(lock_path):
+                raise RuntimeError("boom")
+
+        # Lock should now be available again - a blocking acquire that still
+        # had to wait would hang here instead of failing.
         with ProcessLock(lock_path):
             pass  # Should succeed now
 
