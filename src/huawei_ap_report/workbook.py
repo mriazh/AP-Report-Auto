@@ -187,6 +187,11 @@ def ensure_day_tab(workbook: Workbook, tab: str) -> object:
     donor = workbook[max(existing, key=parse_day_tab)]
     created = workbook.copy_worksheet(donor)
     created.title = tab
+    if "Monthly" in workbook.sheetnames:
+        workbook.move_sheet(
+            created,
+            offset=workbook.sheetnames.index("Monthly") - workbook.sheetnames.index(tab),
+        )
     logger.warning("template has no %r tab; copied it from %r (charts are not copied)", tab, donor.title)
     return created
 
